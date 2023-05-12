@@ -1,11 +1,14 @@
 package com.example.chapter8
 
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import android.view.Menu
+import android.view.MenuItem
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,9 +21,13 @@ import com.example.chapter8.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
 
-    private val imageLoadLauncher = registerForActivityResult(ActivityResultContracts.GetMultipleContents()){
-        uriList -> updateImages(uriList)
+    private val imageLoadLauncher = registerForActivityResult(
+        ActivityResultContracts.GetMultipleContents()
+    ) { uriList ->
+        updateImages(uriList)
     }
+
+
     private lateinit var binding: ActivityMainBinding
     private lateinit var imageAdapter: ImageAdapter
 
@@ -30,14 +37,41 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        binding.toolbar.apply {
+            title = "사진 가져오기"
+            setSupportActionBar(this)
+        }
+
+
+
+
         binding.loadImageButton.setOnClickListener {
             checkPermission()
         }
         initRecyclerView()
     }
 
-    private fun initRecyclerView(){
-        imageAdapter = ImageAdapter(object : ImageAdapter.ItemClickListener{
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when(item.itemId){
+            R.id.action_add -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    checkPermission()
+                }
+                true
+            }
+            else -> {
+                super.onOptionsItemSelected(item)
+            }
+        }
+    }
+
+    private fun initRecyclerView() {
+        imageAdapter = ImageAdapter(object : ImageAdapter.ItemClickListener {
             override fun onLoadMoreClick() {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     checkPermission()
@@ -45,27 +79,38 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        binding.imageRecyclerView.apply{
+        binding.imageRecyclerView.apply {
             adapter = imageAdapter
             layoutManager = GridLayoutManager(context, 2)
         }
+
+        binding.navigateFrameActivityButton.setOnClickListener {
+            navigateToFrameActivity()
+        }
+
+    }
+
+    private fun navigateToFrameActivity(){
+        val images = imageAdapter.currentList.filterIsInstance<ImageItems.Image>().map{it.uri.toString()}.toTypedArray()
+        val intent = Intent(this, FrameActivity::class.java)
+            .putExtra("images", images)
+        startActivity(intent)
 
     }
 
 
     @RequiresApi(Build.VERSION_CODES.M)
-    private fun checkPermission(){
+    private fun checkPermission() {
         when {
             ContextCompat.checkSelfPermission(
                 this,
-                android.Manifest.permission.READ_EXTERNAL_STORAGE,
-            ) == PackageManager.PERMISSION_GRANTED ->
-            {
+                android.Manifest.permission.READ_MEDIA_IMAGES,
+            ) == PackageManager.PERMISSION_GRANTED -> {
                 loadImage()
             }
             shouldShowRequestPermissionRationale(
-                android.Manifest.permission.READ_EXTERNAL_STORAGE) ->
-            {
+                android.Manifest.permission.READ_MEDIA_IMAGES
+            ) -> {
                 showPermissionInfoDialog()
             }
             else -> {
@@ -74,11 +119,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadImage(){
+    private fun loadImage() {
         imageLoadLauncher.launch("image/*")
     }
 
-    companion object{
+    companion object {
         const val REQUEST_READ_EXTERNAL_STORAGE = 100
     }
 
@@ -89,38 +134,38 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
-        when(requestCode){
+        when (requestCode) {
             REQUEST_READ_EXTERNAL_STORAGE -> {
                 val resultCode = grantResults.firstOrNull() ?: PackageManager.PERMISSION_DENIED
-                if(resultCode == PackageManager.PERMISSION_GRANTED){
+                if (resultCode == PackageManager.PERMISSION_GRANTED) {
                     loadImage()
                 }
             }
         }
     }
 
-    private fun showPermissionInfoDialog(){
-        AlertDialog.Builder(this).apply{
+    private fun showPermissionInfoDialog() {
+        AlertDialog.Builder(this).apply {
             setMessage("이미지를 가져오기 위해서, 외부 저장소 읽기 권한이 필요합니다.")
             setNegativeButton("취소", null)
-            setPositiveButton("동의"){_,_ ->
+            setPositiveButton("동의") { _, _ ->
                 requestReadExternalStorage()
             }
         }.show()
 
     }
 
-    private fun requestReadExternalStorage(){
+    private fun requestReadExternalStorage() {
         ActivityCompat.requestPermissions(
             this,
-            arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE),
-            REQUEST_READ_EXTERNAL_STORAGE)
+            arrayOf(android.Manifest.permission.READ_MEDIA_IMAGES),
+            REQUEST_READ_EXTERNAL_STORAGE
+        )
     }
 
-    private fun updateImages(uriList: List<Uri>){
-        Log.i("updateImages", "$uriList")
-        val images = uriList.map{ImageItems.Image(it)}
-        val updateImages = imageAdapter.currentList.toMutableList().apply{
+    private fun updateImages(uriList: List<Uri>) {
+        val images = uriList.map { ImageItems.Image(it) }
+        val updateImages = imageAdapter.currentList.toMutableList().apply {
             addAll(images)
         }
         imageAdapter.submitList(updateImages)

@@ -89,7 +89,8 @@ class ImageViewHolder(private val binding: ItemImageBinding): RecyclerView.ViewH
 
 class LoadMoreViewHolder(binding: ItemLoadMoreBinding): RecyclerView.ViewHolder(binding.root){
     fun bind(itemClickListener: ImageAdapter.ItemClickListener){
-        itemView.setOnClickListener {itemClickListener.onLoadMoreClick()}
-
+        itemView.setOnClickListener {
+            itemClickListener.onLoadMoreClick()
+        }
     }
 }
